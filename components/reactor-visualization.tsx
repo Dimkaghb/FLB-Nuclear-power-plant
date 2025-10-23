@@ -13,6 +13,7 @@ interface ReactorVisualizationProps {
 interface Particle {
   progress: number
   path: "primary-hot" | "primary-cold" | "secondary-steam" | "secondary-condensate" | "secondary-feedwater"
+  activationDelay: number // milliseconds after simulation start when this particle type becomes active
 }
 
 export default function ReactorVisualization({ parameters, isSimulationRunning, simulationStartTime }: ReactorVisualizationProps) {
@@ -52,39 +53,76 @@ export default function ReactorVisualization({ parameters, isSimulationRunning, 
     window.addEventListener("resize", resizeCanvas)
 
     if (particlesRef.current.length === 0) {
-      // Primary hot leg particles
+      /*
+       * PRESSURIZED WATER REACTOR (PWR) SYSTEM FLOW IMPLEMENTATION
+       * 
+       * This visualization follows the complete PWR energy flow cycle:
+       * 
+       * PRIMARY LOOP (Heat Source - Isolated System):
+       * 1. Reactor Vessel: Nuclear fission generates heat
+       * 2. Reactor Coolant Pump: Circulates hot pressurized water
+       * 3. Steam Generator: Heat transfer point (primary → secondary)
+       * 4. Return to Reactor Vessel: Cooled water recirculates
+       * 
+       * SECONDARY LOOP (Power Generation - Clean Water System):
+       * 1. Steam Generator: Produces high-pressure steam from heat transfer
+       * 2. Main Turbine: Steam drives turbine rotation
+       * 3. Generator: Converts mechanical motion to electricity
+       * 4. Condenser: Steam condenses back to liquid water
+       * 5. Hotwell: Collects condensed water
+       * 6. Condensate Pump: Moves water through system
+       * 7. Feed Pump: Pressurizes water back to Steam Generator
+       * 
+       * BRIDGE POINT: Steam Generator connects both loops without mixing fluids
+       */
+      
+      // PRIMARY LOOP: Reactor Vessel → Reactor Coolant Pump → Steam Generator → Reactor Vessel
+      
+      // 1. PRIMARY HOT LEG: Reactor Vessel → Steam Generator (Heat Generation Phase)
       for (let i = 0; i < 30; i++) {
         particlesRef.current.push({
           progress: i / 30,
           path: "primary-hot",
+          activationDelay: 0, // Start immediately - Nuclear fission begins in Reactor Vessel
         })
       }
-      // Primary cold leg particles
+      
+      // 2. PRIMARY COLD LEG: Steam Generator → Reactor Vessel (Primary Recirculation)
       for (let i = 0; i < 30; i++) {
         particlesRef.current.push({
           progress: i / 30,
           path: "primary-cold",
+          activationDelay: 2000, // 2 seconds - After hot water reaches Steam Generator
         })
       }
-      // Secondary steam line particles
+      
+      // SECONDARY LOOP: Steam Generator → Turbine → Generator → Condenser → Hotwell → Condensate Pump → Feed Pump → Steam Generator
+       // NOTE: Steam Generator acts as the BRIDGE - heat transfers from primary to secondary without fluid mixing
+       
+       // 3. SECONDARY STEAM: Steam Generator → Main Turbine (Heat Transfer Point → Power Generation)
       for (let i = 0; i < 25; i++) {
         particlesRef.current.push({
           progress: i / 25,
           path: "secondary-steam",
+          activationDelay: 3000, // 3 seconds - After heat transfer creates steam in Steam Generator
         })
       }
-      // Secondary condensate return particles
+      
+      // 4. SECONDARY CONDENSATE: Condenser → Hotwell → Condensate Pump (Condensate Return Phase)
       for (let i = 0; i < 20; i++) {
         particlesRef.current.push({
           progress: i / 20,
           path: "secondary-condensate",
+          activationDelay: 5000, // 5 seconds - After steam drives turbine and condenses
         })
       }
-      // Secondary feedwater line particles
+      
+      // 5. SECONDARY FEEDWATER: Feed Pump → Steam Generator (Cycle Completion)
       for (let i = 0; i < 25; i++) {
         particlesRef.current.push({
           progress: i / 25,
           path: "secondary-feedwater",
+          activationDelay: 7000, // 7 seconds - Final step to complete secondary loop cycle
         })
       }
     }
@@ -781,31 +819,44 @@ export default function ReactorVisualization({ parameters, isSimulationRunning, 
       if (isSimulationRunning) {
         const flowRate = (parameters.flow?.primaryCoolant || 100) / 100
         const speedMultiplier = getSpeedMultiplier()
+        const currentTime = Date.now()
+        
         particlesRef.current.forEach((particle) => {
+          // Check if this particle type should be active based on activation delay
+          const isParticleActive = simulationStartTime && 
+            (currentTime - simulationStartTime) >= particle.activationDelay
+          
+          if (!isParticleActive) return // Skip this particle if not yet activated
+          
           particle.progress += 0.004 * flowRate * speedMultiplier
           if (particle.progress > 1) particle.progress = 0
 
           const pos = getParticlePosition(particle)
 
-          // Set particle color based on path
+          // Set particle color based on PWR system flow phase
           if (particle.path === "primary-hot") {
-            ctx.fillStyle = "rgba(255, 100, 100, 0.9)"
+            // PRIMARY HOT LEG: Reactor Vessel → Steam Generator (Heat Generation)
+            ctx.fillStyle = "rgba(255, 100, 100, 0.9)" // Bright red for hot primary coolant
             ctx.shadowColor = "#ff6600"
             ctx.shadowBlur = 8
           } else if (particle.path === "primary-cold") {
-            ctx.fillStyle = "rgba(255, 150, 100, 0.9)"
+            // PRIMARY COLD LEG: Steam Generator → Reactor Vessel (Primary Recirculation)
+            ctx.fillStyle = "rgba(255, 150, 100, 0.9)" // Orange for cooled primary coolant
             ctx.shadowColor = "#ff9933"
             ctx.shadowBlur = 8
           } else if (particle.path === "secondary-steam") {
-            ctx.fillStyle = "rgba(255, 255, 255, 0.8)"
+            // SECONDARY STEAM: Steam Generator → Main Turbine (Power Generation)
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)" // White for high-pressure steam
             ctx.shadowColor = "#ffffff"
             ctx.shadowBlur = 10
           } else if (particle.path === "secondary-condensate") {
-            ctx.fillStyle = "rgba(100, 150, 255, 0.9)"
+            // SECONDARY CONDENSATE: Condenser → Hotwell → Condensate Pump (Condensate Return)
+            ctx.fillStyle = "rgba(100, 150, 255, 0.9)" // Blue for condensed water
             ctx.shadowColor = "#4080ff"
             ctx.shadowBlur = 8
           } else {
-            ctx.fillStyle = "rgba(80, 130, 255, 0.9)"
+            // SECONDARY FEEDWATER: Feed Pump → Steam Generator (Cycle Completion)
+            ctx.fillStyle = "rgba(80, 130, 255, 0.9)" // Dark blue for pressurized feedwater
             ctx.shadowColor = "#0066cc"
             ctx.shadowBlur = 8
           }
