@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react"
 
 interface ReactorVisualizationProps {
   parameters: Record<string, Record<string, number>>
+  isSimulationRunning: boolean
+  simulationStartTime: number | null
 }
 
 interface Particle {
@@ -13,7 +15,7 @@ interface Particle {
   path: "primary-hot" | "primary-cold" | "secondary-steam" | "secondary-condensate" | "secondary-feedwater"
 }
 
-export default function ReactorVisualization({ parameters }: ReactorVisualizationProps) {
+export default function ReactorVisualization({ parameters, isSimulationRunning, simulationStartTime }: ReactorVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
@@ -761,43 +763,60 @@ export default function ReactorVisualization({ parameters }: ReactorVisualizatio
       drawPump(800, 570, "FEED PUMP")
       drawPump(950, 510, "CONDENSATE PUMP")
 
-      // Draw particles
-      const flowRate = (parameters.flow?.primaryCoolant || 100) / 100
-      particlesRef.current.forEach((particle) => {
-        particle.progress += 0.004 * flowRate
-        if (particle.progress > 1) particle.progress = 0
-
-        const pos = getParticlePosition(particle)
-
-        // Set particle color based on path
-        if (particle.path === "primary-hot") {
-          ctx.fillStyle = "rgba(255, 100, 100, 0.9)"
-          ctx.shadowColor = "#ff6600"
-          ctx.shadowBlur = 8
-        } else if (particle.path === "primary-cold") {
-          ctx.fillStyle = "rgba(255, 150, 100, 0.9)"
-          ctx.shadowColor = "#ff9933"
-          ctx.shadowBlur = 8
-        } else if (particle.path === "secondary-steam") {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.8)"
-          ctx.shadowColor = "#ffffff"
-          ctx.shadowBlur = 10
-        } else if (particle.path === "secondary-condensate") {
-          ctx.fillStyle = "rgba(100, 150, 255, 0.9)"
-          ctx.shadowColor = "#4080ff"
-          ctx.shadowBlur = 8
-        } else {
-          ctx.fillStyle = "rgba(80, 130, 255, 0.9)"
-          ctx.shadowColor = "#0066cc"
-          ctx.shadowBlur = 8
+      // Calculate speed multiplier for transition effect
+      const getSpeedMultiplier = () => {
+        if (!simulationStartTime) return 1
+        const elapsedTime = Date.now() - simulationStartTime
+        const transitionDuration = 3000 // 3 seconds for full speed transition
+        
+        if (elapsedTime < transitionDuration) {
+          // Start at 20% speed and gradually increase to 100%
+          const progress = elapsedTime / transitionDuration
+          return 0.2 + (0.8 * progress)
         }
+        return 1 // Full speed after transition
+      }
 
-        ctx.beginPath()
-        ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2)
-        ctx.fill()
+      // Draw particles only if simulation is running
+      if (isSimulationRunning) {
+        const flowRate = (parameters.flow?.primaryCoolant || 100) / 100
+        const speedMultiplier = getSpeedMultiplier()
+        particlesRef.current.forEach((particle) => {
+          particle.progress += 0.004 * flowRate * speedMultiplier
+          if (particle.progress > 1) particle.progress = 0
 
-        ctx.shadowBlur = 0
-      })
+          const pos = getParticlePosition(particle)
+
+          // Set particle color based on path
+          if (particle.path === "primary-hot") {
+            ctx.fillStyle = "rgba(255, 100, 100, 0.9)"
+            ctx.shadowColor = "#ff6600"
+            ctx.shadowBlur = 8
+          } else if (particle.path === "primary-cold") {
+            ctx.fillStyle = "rgba(255, 150, 100, 0.9)"
+            ctx.shadowColor = "#ff9933"
+            ctx.shadowBlur = 8
+          } else if (particle.path === "secondary-steam") {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)"
+            ctx.shadowColor = "#ffffff"
+            ctx.shadowBlur = 10
+          } else if (particle.path === "secondary-condensate") {
+            ctx.fillStyle = "rgba(100, 150, 255, 0.9)"
+            ctx.shadowColor = "#4080ff"
+            ctx.shadowBlur = 8
+          } else {
+            ctx.fillStyle = "rgba(80, 130, 255, 0.9)"
+            ctx.shadowColor = "#0066cc"
+            ctx.shadowBlur = 8
+          }
+
+          ctx.beginPath()
+          ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.shadowBlur = 0
+        })
+      }
 
       ctx.restore()
 
@@ -812,7 +831,7 @@ export default function ReactorVisualization({ parameters }: ReactorVisualizatio
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [mounted, parameters])
+  }, [mounted, parameters, isSimulationRunning, simulationStartTime])
 
   if (!mounted) {
     return (

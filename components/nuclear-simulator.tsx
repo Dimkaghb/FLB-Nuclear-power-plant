@@ -6,6 +6,9 @@ import ControlSidebar from "./control-sidebar"
 
 export default function NuclearSimulator() {
   const [mounted, setMounted] = useState(false)
+  const [isSimulationRunning, setIsSimulationRunning] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [simulationStartTime, setSimulationStartTime] = useState<number | null>(null)
 
   useEffect(() => {
     console.log("[v0] NuclearSimulator mounted")
@@ -98,6 +101,31 @@ export default function NuclearSimulator() {
     }))
   }
 
+  /**
+   * Toggles the simulation state between running and stopped
+   * Includes 2-second loading delay when starting simulation
+   */
+  const toggleSimulation = () => {
+    if (isSimulationRunning) {
+      // Stop simulation immediately
+      console.log("[v0] Stopping simulation")
+      setIsSimulationRunning(false)
+      setIsLoading(false)
+      setSimulationStartTime(null)
+    } else {
+      // Start simulation with loading delay
+      console.log("[v0] Starting simulation with loading delay")
+      setIsLoading(true)
+      
+      setTimeout(() => {
+        setIsSimulationRunning(true)
+        setIsLoading(false)
+        setSimulationStartTime(Date.now())
+        console.log("[v0] Simulation started after loading")
+      }, 2000) // 2-second delay
+    }
+  }
+
   if (!mounted) {
     return (
       <div className="flex h-screen bg-background items-center justify-center">
@@ -108,8 +136,18 @@ export default function NuclearSimulator() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <ControlSidebar parameters={parameters} updateParameter={updateParameter} />
-      <ReactorVisualization parameters={parameters} />
+      <ControlSidebar 
+        parameters={parameters} 
+        updateParameter={updateParameter}
+        isSimulationRunning={isSimulationRunning}
+        isLoading={isLoading}
+        toggleSimulation={toggleSimulation}
+      />
+      <ReactorVisualization 
+        parameters={parameters} 
+        isSimulationRunning={isSimulationRunning}
+        simulationStartTime={simulationStartTime}
+      />
     </div>
   )
 }

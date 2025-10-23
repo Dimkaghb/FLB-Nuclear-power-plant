@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label"
 interface ControlSidebarProps {
   parameters: Record<string, Record<string, number>>
   updateParameter: (category: string, param: string, value: number) => void
+  isSimulationRunning: boolean
+  isLoading: boolean
+  toggleSimulation: () => void
 }
 
 const categories = [
@@ -19,7 +22,7 @@ const categories = [
   { key: "other", label: "Прочее", unit: "" },
 ]
 
-export default function ControlSidebar({ parameters, updateParameter }: ControlSidebarProps) {
+export default function ControlSidebar({ parameters, updateParameter, isSimulationRunning, isLoading, toggleSimulation }: ControlSidebarProps) {
   useEffect(() => {
     console.log("[v0] ControlSidebar mounted")
   }, [])
@@ -42,6 +45,24 @@ export default function ControlSidebar({ parameters, updateParameter }: ControlS
     <aside className="w-80 bg-sidebar border-r border-sidebar-border overflow-y-auto">
       <div className="p-4 border-b border-sidebar-border">
         <h1 className="text-lg font-mono text-sidebar-foreground">REACTOR CONTROL</h1>
+        <div className="mt-4">
+          <button
+            onClick={toggleSimulation}
+            disabled={isLoading}
+            className={`w-full px-4 py-3 font-mono text-sm font-bold rounded transition-colors flex items-center justify-center gap-2 ${
+              isLoading
+                ? "bg-yellow-600 text-white cursor-not-allowed"
+                : isSimulationRunning
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-green-600 hover:bg-green-700 text-white"
+            }`}
+          >
+            {isLoading && (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            )}
+            {isLoading ? "INITIALIZING..." : isSimulationRunning ? "STOP SIMULATION" : "START SIMULATION"}
+          </button>
+        </div>
       </div>
       <div className="divide-y divide-sidebar-border">
         {categories.map((category) => (
