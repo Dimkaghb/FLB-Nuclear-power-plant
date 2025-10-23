@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useEffect, useRef, useState } from "react"
+import StageExplanationToast from "./stage-explanation-toast"
 
 interface ReactorVisualizationProps {
   parameters: Record<string, Record<string, number>>
@@ -21,8 +22,28 @@ export default function ReactorVisualization({ parameters, isSimulationRunning, 
   const containerRef = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
   const [canvasTransform, setCanvasTransform] = useState({ scale: 1, offsetX: 0, offsetY: 0 })
+  const [currentStage, setCurrentStage] = useState(0)
   const particlesRef = useRef<Particle[]>([])
   const animationFrameRef = useRef<number | null>(null)
+
+  /**
+   * Calculate current PWR system stage based on simulation timing
+   * Stages correspond to particle activation delays and system progression
+   */
+  const calculateCurrentStage = (elapsedTime: number): number => {
+    if (elapsedTime < 0) return 0 // System initialization
+    if (elapsedTime < 1000) return 1 // Stage 1: Reactor Vessel - Nuclear Fission (0ms)
+    if (elapsedTime < 2000) return 2 // Stage 2: Reactor Coolant Pump
+    if (elapsedTime < 3000) return 3 // Stage 3: Steam Generator - Heat Transfer (2000ms)
+    if (elapsedTime < 4000) return 4 // Stage 4: Return to Reactor Vessel
+    if (elapsedTime < 5000) return 5 // Stage 5: Steam Generator - High-Pressure Steam (3000ms)
+    if (elapsedTime < 6000) return 6 // Stage 6: Main Turbine - Mechanical Energy
+    if (elapsedTime < 7000) return 7 // Stage 7: Generator - Electrical Energy
+    if (elapsedTime < 8000) return 8 // Stage 8: Condenser - Steam Condensation (5000ms)
+    if (elapsedTime < 9000) return 9 // Stage 9: Hotwell - Condensate Collection
+    if (elapsedTime < 10000) return 10 // Stage 10: Condensate & Feed Pumps (7000ms)
+    return 11 // Stage 11: Return to Steam Generator - Cycle Complete
+  }
 
   useEffect(() => {
     setMounted(true)
@@ -766,6 +787,16 @@ export default function ReactorVisualization({ parameters, isSimulationRunning, 
     const animate = () => {
       if (!ctx || !canvas) return
 
+      // Update current stage based on simulation timing
+      if (simulationStartTime && isSimulationRunning) {
+        const currentTime = Date.now()
+        const elapsedTime = currentTime - simulationStartTime
+        const newStage = calculateCurrentStage(elapsedTime)
+        setCurrentStage(newStage)
+      } else {
+        setCurrentStage(0) // Reset to initialization stage when not running
+      }
+
       // Clear canvas
       ctx.fillStyle = "#1a1a1a"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -1013,6 +1044,12 @@ export default function ReactorVisualization({ parameters, isSimulationRunning, 
           </div>
         </div>
       </div>
+
+      {/* Stage Explanation Toast */}
+      <StageExplanationToast 
+        currentStage={currentStage}
+        isVisible={isSimulationRunning}
+      />
     </main>
   )
 }
